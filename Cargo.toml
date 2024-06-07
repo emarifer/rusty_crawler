@@ -1,5 +1,7 @@
 [package]
 name = "rusty_crawler"
+authors = ["emarifer <enriquemarin_sierra@hotmail.com>"]
+description = "A robust yet minimal web crawler implemented in Rust, utilizing various libraries and aiming for scalability and extensibility."
 version = "0.1.0"
 edition = "2021"
 
