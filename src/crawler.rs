@@ -56,7 +56,7 @@ async fn get_all_links(url: Url, client: &Client) -> Result<Vec<String>> {
         .select(&link_selector)
         .filter_map(|e| e.value().attr("href"))
         .map(|href| href.to_string())
-        .collect::<Vec<String>>())
+        .collect())
 }
 
 /// Given a `url`, and a `client`, it will crawl
@@ -81,20 +81,20 @@ async fn find_links(url: Url, client: &Client) -> Vec<String> {
 }
 
 /// Function to crawl links in the given url.
-pub async fn crawl(crawl_state: CrawlerStateRef) -> Result<()> {
+pub async fn crawl(crawler_state: CrawlerStateRef) -> Result<()> {
     // One client per worker thread
     let client = Client::new();
 
     // Crawler loop
     'crawler: loop {
-        let already_visited = crawl_state.already_visited.read().await;
-        if already_visited.len() > crawl_state.max_links {
+        let already_visited = crawler_state.already_visited.read().await;
+        if already_visited.len() > crawler_state.max_links {
             break 'crawler;
         }
         drop(already_visited);
 
         // Also check that max links have been reached
-        let mut link_queue = crawl_state.link_queue.write().await;
+        let mut link_queue = crawler_state.link_queue.write().await;
         let url_str = link_queue.pop_front().unwrap_or_default();
         drop(link_queue);
         if url_str.is_empty() {
@@ -107,8 +107,8 @@ pub async fn crawl(crawl_state: CrawlerStateRef) -> Result<()> {
 
         let links = find_links(url, &client).await;
 
-        let mut link_queue = crawl_state.link_queue.write().await;
-        let mut already_visited = crawl_state.already_visited.write().await;
+        let mut link_queue = crawler_state.link_queue.write().await;
+        let mut already_visited = crawler_state.already_visited.write().await;
         for link in links {
             if !already_visited.contains(&link) {
                 link_queue.push_back(link);

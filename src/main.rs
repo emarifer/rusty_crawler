@@ -31,12 +31,14 @@ struct ProgramArgs {
 }
 
 async fn output_status(crawler_state: CrawlerStateRef) -> Result<()> {
-    'output: loop {
+    loop {
         let link_queue = crawler_state.link_queue.read().await;
         let already_visited = crawler_state.already_visited.read().await;
 
         if already_visited.len() > crawler_state.max_links {
-            break 'output;
+            // Show the links
+            // println!("All links found: {:#?}", already_visited);
+            break Ok(());
         }
 
         println!("Number of links visited: {}", already_visited.len());
@@ -47,8 +49,6 @@ async fn output_status(crawler_state: CrawlerStateRef) -> Result<()> {
 
         tokio::time::sleep(Duration::from_secs(3)).await;
     }
-
-    Ok(())
 }
 
 async fn try_main(args: ProgramArgs) -> Result<()> {

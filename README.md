@@ -19,4 +19,18 @@
 
 </div>
 
+>🤦 Another web crawler… but rusty. 🦀
+
 <hr />
+
+## 👨‍🚀 Installation and Usage
+
+To use this web crawler, simply check out the repository, build, and run with:
+
+```bash
+cargo b --release && ./target/release/rusty_crawler --help
+```
+
+---
+
+### Happy coding 😀!!
