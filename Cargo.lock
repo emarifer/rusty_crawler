@@ -1209,6 +1209,7 @@ dependencies = [
  "env_logger",
  "futures",
  "log",
+ "rand",
  "reqwest",
  "scraper",
  "serde",

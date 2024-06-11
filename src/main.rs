@@ -18,8 +18,12 @@ struct ProgramArgs {
     starting_url: String,
 
     /// Maximum links to find
-    #[arg(short, long, default_value_t = 100)]
+    #[arg(long, default_value_t = 100)]
     max_links: u64,
+
+    /// Maximum url length it allows. Will ignore page it url length reaches this limit
+    #[arg(short, long, default_value_t = 150)]
+    max_url_length: usize,
 
     /// Number of worker threads
     #[arg(short, long, default_value_t = 4)]
@@ -57,6 +61,7 @@ async fn try_main(args: ProgramArgs) -> Result<()> {
         link_queue: RwLock::new(VecDeque::from([args.starting_url])),
         already_visited: RwLock::new(Default::default()),
         max_links: args.max_links as usize,
+        max_url_length: args.max_url_length,
     };
     let crawler_state = Arc::new(crawler_state);
 

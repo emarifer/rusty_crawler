@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
+use rand::{thread_rng, Rng};
 use reqwest::{Client, StatusCode};
 use scraper::Selector;
 use tokio::sync::RwLock;
@@ -16,6 +17,7 @@ pub struct CrawlerState {
     pub link_queue: RwLock<VecDeque<String>>,
     pub already_visited: RwLock<HashSet<String>>,
     pub max_links: usize,
+    pub max_url_length: usize,
 }
 
 pub type CrawlerStateRef = Arc<CrawlerState>;
@@ -23,14 +25,17 @@ pub type CrawlerStateRef = Arc<CrawlerState>;
 /// This will turn relative urls into
 /// full urls.
 /// E.g. get_url("/services/", "https://google.com/") -> "https://google.com/services/"
-fn get_url(path: &str, root_url: Url) -> Result<Url> {
+fn get_url(path: &str, root_url: Url, max_url_length: usize) -> Result<Url> {
     if let Ok(url) = Url::parse(&path) {
-        return Ok(url);
+        if url.as_str().len() <= max_url_length {
+            return Ok(url);
+        }
     }
 
     root_url
         .join(&path)
         .ok()
+        .filter(|u| u.as_str().len() <= max_url_length)
         .ok_or(anyhow!("could not join relative path"))
 }
 
@@ -62,20 +67,20 @@ async fn get_all_links(url: Url, client: &Client) -> Result<Vec<String>> {
 /// Given a `url`, and a `client`, it will crawl
 /// the HTML in `url` and find all the links in the
 /// page, returning them as a vector of strings.
-async fn find_links(url: Url, client: &Client) -> Vec<String> {
+async fn find_links(url: Url, client: &Client, max_url_length: usize) -> Vec<String> {
     // This will get all the "href" tags in all the anchors
     let links = match get_all_links(url.clone(), client).await {
         Ok(links) => links,
         Err(e) => {
             log::error!("Could not find links: {}", e);
-            vec![]
+            return vec![];
         }
     };
 
     // Turn all links into absolute links
     links
         .iter()
-        .filter_map(|l| get_url(l, url.clone()).ok())
+        .filter_map(|l| get_url(l, url.clone(), max_url_length).ok())
         .map(|url| url.to_string())
         .collect()
 }
@@ -86,28 +91,31 @@ pub async fn crawl(crawler_state: CrawlerStateRef) -> Result<()> {
     let client = Client::new();
 
     // Crawler loop
-    'crawler: loop {
+    loop {
         let already_visited = crawler_state.already_visited.read().await;
         if already_visited.len() > crawler_state.max_links {
-            break 'crawler;
+            break;
         }
         drop(already_visited);
 
-        // Also check that max links have been reached
         let mut link_queue = crawler_state.link_queue.write().await;
-        let url_str = link_queue.pop_front().unwrap_or_default();
-        drop(link_queue);
+        let url_str = if thread_rng().gen_bool(0.5) {
+            link_queue.pop_front().unwrap_or_default()
+        } else {
+            link_queue.pop_back().unwrap_or_default()
+        };
+
+        // Also check that max links have been reached
         if url_str.is_empty() {
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            // tokio::time::sleep(Duration::from_millis(300)).await;
             continue;
         }
 
         // Current url to visit
         let url = Url::parse(&url_str)?;
 
-        let links = find_links(url, &client).await;
+        let links = find_links(url.clone(), &client, crawler_state.max_url_length).await;
 
-        let mut link_queue = crawler_state.link_queue.write().await;
         let mut already_visited = crawler_state.already_visited.write().await;
         for link in links {
             if !already_visited.contains(&link) {
